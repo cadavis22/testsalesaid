@@ -1,130 +1,176 @@
-<!DOCTYPE html>
-<html>
-  <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0; user-scalable=no" />
-    <meta http-equiv="Content-type" content="text/html; charset=utf-8">
-
-    <!-- include jquery mobile -->
-    <link rel="stylesheet" href="jquery/jquery.mobile-1.0b2.min.css" />
-    <script src="jquery/jquery-1.6.2.min.js"></script>
-    <script src="jquery/jquery.mobile-1.0b2.min.js"></script>
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+        <title>CNL Sales Binder</title>
+        <meta name="author" content="Chris A Davis.">
+        <meta name="description" content="Sales Binder for marketing materials, viewing SF data, and report activities.">
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black">
+        <link type="text/css" rel="stylesheet" media="all" href="css/style.css">
+        <link type="text/css" rel="stylesheet" media="all" href="css/responsive.css">
         
-    <!-- include cordova / callback -->
-	<script src="cordova-1.8.1.js"></script>
-    <!-- include local utility functionality -->
-    <script src="SFHybridApp.js"></script>
-    <!-- required for oauth plugin support -->    
-    <script src="SalesforceOAuthPlugin.js"></script>
-
-    <!-- include forcetk for REST transaction support -->
-    <script src="forcetk.js"></script>    
-
-    <!-- log window styling -->
-    <style>
-      .logWindow {display:none; width:700px;}
-      .logWindow > p {padding:0px; margin:0px; word-wrap:break-word;}
-    </style>
-
-    <script>
-
+        <!-- include jquery mobile -->
+        <link rel="stylesheet" href="jquery/jquery.mobile-1.0b2.min.css" />
+        <script src="jquery/jquery-1.6.2.min.js"></script> 
+        <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>-->
+        <script src="jquery/jquery.mobile-1.0b2.min.js"></script>
+        
+        <!-- include cordova / callback -->
+        <script src="cordova-1.8.1.js"></script>
+        <!-- include local utility functionality -->
+        <script src="SFHybridApp.js"></script>
+        <!-- required for oauth plugin support -->
+        <script src="SalesforceOAuthPlugin.js"></script>
+        <!-- required for local database support -->
+        <script type="text/javascript" src="app.js"></script>
+        
+        <!-- include forcetk for REST transaction support -->
+        <script src="forcetk.js"></script>
+        
+        <!-- log window styling -->
+        <style>
+            .logWindow {display:none; width:700px;}
+            .logWindow > p {padding:0px; margin:0px; word-wrap:break-word;}
+            </style>
+        
+        <script>
+            
+            
+            // The version of the REST API you wish to use in your app.
+            var apiVersion = "v23.0";
+            
+            // If you want to prevent dragging, uncomment this section
+            /*
+             function preventBehavior(e)
+             {
+             e.preventDefault();
+             };
+             document.addEventListener("touchmove", preventBehavior, false);
+             */
+            
+            /* If you are supporting your own protocol, the var invokeString will contain any arguments to the app launch.
+             see http://iphonedevelopertips.com/cocoa/launching-your-own-application-via-a-custom-url-scheme.html
+             for more details -jm */
+            /*
+             function handleOpenURL(url)
+             {
+             // do something with the url passed in.
+             }
+             */
+            
+            var forcetkClient;
+            var debugMode = true;
+            var logToConsole = cordova.require("salesforce/util/logger").logToConsole;
+            var dao;
+            
+            jQuery(document).ready(function() {
+                                   //Add event listeners and so forth here
+                                   logToConsole("onLoad: jquery ready");
+                                   document.addEventListener("deviceready", onDeviceReady,false);
+                                   
+                                   });
+            
+            // When this function is called, Cordova has been initialized and is ready to roll 
+            function onDeviceReady() {
+                logToConsole("onDeviceReady: Cordova ready");
+                //Call getAuthCredentials to get the initial session credentials
+                cordova.require("salesforce/plugin/oauth").getAuthCredentials(salesforceSessionRefreshed, getAuthCredentialsError);
+                
+                //register to receive notifications when autoRefreshOnForeground refreshes the sfdc session
+                document.addEventListener("salesforceSessionRefresh",salesforceSessionRefreshed,false);
+                
+                //enable buttons
+                regLinkClickHandlers();
+                
+                var failCB = function (msg) {
+                    return function () {
+                        alert('[FAIL] ' + msg);
+                    }
+                };
+                
+                var fail = failCB('requestFileSystem');
+                window.requestFileSystem(LocalFileSystem.PERSISTENT, 0, gotFS, fail);
+                
+            }
+            
+            
+            function salesforceSessionRefreshed(creds) {
+                logToConsole("salesforceSessionRefreshed");
+                
+                // Depending on how we come into this method, `creds` may be callback data from the auth
+                // plugin, or an event fired from the plugin.  The data is different between the two.
+                var credsData = creds;
+                if (creds.data)  // Event sets the `data` object with the auth data.
+                credsData = creds.data;
+                
+                forcetkClient = new forcetk.Client(credsData.clientId, credsData.loginUrl);
+                forcetkClient.setSessionToken(credsData.accessToken, apiVersion, credsData.instanceUrl);
+                forcetkClient.setRefreshToken(credsData.refreshToken);
+                forcetkClient.setUserAgentString(credsData.userAgent);
+            }
+            
+            
+            function getAuthCredentialsError(error) {
+                logToConsole("getAuthCredentialsError: " + error);
+            }
+            
+            </script>
+            
+        <!-- load the navbar scripts -->
+        <script src="js/navbar-script.js"></script>
+        <!-- load our app-specific code -->
+        <script src="inline.js"></script>
+</head>
+<body>
     
-    // The version of the REST API you wish to use in your app.
-    var apiVersion = "v23.0";
-
-	// If you want to prevent dragging, uncomment this section
-	/*
-	function preventBehavior(e) 
-	{ 
-      e.preventDefault(); 
-    };
-	document.addEventListener("touchmove", preventBehavior, false);
-	*/
-	
-	/* If you are supporting your own protocol, the var invokeString will contain any arguments to the app launch.
-	see http://iphonedevelopertips.com/cocoa/launching-your-own-application-via-a-custom-url-scheme.html
-	for more details -jm */
-	/*
-	function handleOpenURL(url)
-	{
-		// do something with the url passed in.
-	}
-	*/
-	
-    var forcetkClient;
-    var debugMode = true;
-    var logToConsole = cordova.require("salesforce/util/logger").logToConsole;
-
-    jQuery(document).ready(function() {
-        //Add event listeners and so forth here
-        logToConsole("onLoad: jquery ready");
-		document.addEventListener("deviceready", onDeviceReady,false);
-
-    });
-
-    // When this function is called, Cordova has been initialized and is ready to roll 
-    function onDeviceReady() {
-        logToConsole("onDeviceReady: Cordova ready");
-		//Call getAuthCredentials to get the initial session credentials
-        cordova.require("salesforce/plugin/oauth").getAuthCredentials(salesforceSessionRefreshed, getAuthCredentialsError);
-
-        //register to receive notifications when autoRefreshOnForeground refreshes the sfdc session
-        document.addEventListener("salesforceSessionRefresh",salesforceSessionRefreshed,false);
-
-        //enable buttons
-        regLinkClickHandlers();
-    }
-        
-
-    function salesforceSessionRefreshed(creds) {
-        logToConsole("salesforceSessionRefreshed");
-        
-        // Depending on how we come into this method, `creds` may be callback data from the auth
-        // plugin, or an event fired from the plugin.  The data is different between the two.
-        var credsData = creds;
-        if (creds.data)  // Event sets the `data` object with the auth data.
-            credsData = creds.data;
-
-        forcetkClient = new forcetk.Client(credsData.clientId, credsData.loginUrl);
-        forcetkClient.setSessionToken(credsData.accessToken, apiVersion, credsData.instanceUrl);
-        forcetkClient.setRefreshToken(credsData.refreshToken);
-        forcetkClient.setUserAgentString(credsData.userAgent);
-    }
-
-
-    function getAuthCredentialsError(error) {
-        logToConsole("getAuthCredentialsError: " + error);
-    }
-        
-    </script>
-        
-	<!-- load our app-specific code -->
-    <script src="inline.js"></script>       
-
-  </head>
-  <body>
-      <div data-role="page" data-theme="b" id="jqm-home"> 
-          <div  data-role="header"> 
-              <h1>Hybrid REST Explorer (SalesforceMobileSDK + Cordova + JQM)</h1> 
-          </div> 
-
-          <div id="#content" data-role="content"> 
-
-              <p><a href="#" id="link_fetch_device_contacts" data-role="button" data-inline="true">Fetch Device contacts</a></p>
-              <p><a href="#" id="link_fetch_sfdc_contacts" data-role="button" data-inline="true">Fetch SFDC contacts</a></p>
-              <p><a href="#" id="link_fetch_sfdc_accounts" data-role="button" data-inline="true">Fetch SFDC Accounts</a></p>
-              <p><a href="#" id="link_reset" data-role="button" data-inline="true">Reset</a></p>
-
-              <p><a href="#" id="link_logout" data-role="button" data-inline="true">Logout</a></p>
-
-              <div id="div_device_contact_list"></div>
-              <div id="div_sfdc_contact_list"></div>
-              <div id="div_sfdc_account_list"></div>
-
-              <h3>console:</h3>
-              <p id="console" class="logWindow">
-              </p>
-          </div> 
-
-      </div> 
-  </body>
+	<div id="w">
+		
+		<div id="pagebody">
+			<header id="toolbarnav">
+				<a href="#navmenu" id="menu-btn"></a>
+                
+				<h1>CNL Sales Binder</h1>
+			</header>
+			
+			<section id="content" class="clearfix">
+				<h2>Welcome to the Mobile Site!</h2>
+				
+				<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed lorem sapien, auctor placerat varius sed, aliquam et nibh. Quisque posuere erat nec tortor vestibulum id dignissim quam ornare. Suspendisse sapien ante, pellentesque non interdum ac, feugiat at eros. Morbi lacus augue, blandit ac porta a, rutrum quis tellus. Nam ut velit lorem, sit amet placerat lorem.</p>
+				
+				<img src="img/hongkiat-lim.png" alt="Hongkiat Lim" class="photo">
+                    
+                    <p>Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Aliquam convallis lacinia dapibus. Sed nunc enim, ultrices nec suscipit ac, malesuada pharetra diam. Etiam massa orci, pellentesque nec lacinia eu, vulputate non est. Donec faucibus, tellus eu ultrices lobortis, leo nisl iaculis elit, id dictum arcu massa in nibh. Nulla auctor vehicula rutrum. Vivamus mi mauris, molestie sit amet placerat ac, tempor vitae nisi. Fusce pharetra eleifend aliquam. Cras ultricies orci sit amet ligula tempor pulvinar.</p>
+                    
+                    <p>Vivamus consectetur nulla vel neque accumsan bibendum lacinia nibh venenatis. Morbi placerat tempor nunc, eu congue metus pellentesque vitae.</p>
+                    
+                    <p>Maecenas lacinia commodo venenatis. Sed nec mauris sapien. Donec eget justo sapien, id elementum magna. Integer et orci quis urna tempus eleifend eget eu nulla. Quisque interdum porttitor tincidunt. Nulla ornare dolor elit, eu adipiscing felis. Nulla viverra blandit bibendum. Mauris non tellus lacus.</p>
+                    
+                    <p>Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Aliquam convallis lacinia dapibus. Sed nunc enim, ultrices nec suscipit ac, malesuada pharetra diam. Etiam massa orci, pellentesque nec lacinia eu, vulputate non est. Donec faucibus, tellus eu ultrices lobortis, leo nisl iaculis elit, id dictum arcu massa in nibh.</p>
+                    
+                    <p>Nulla auctor vehicula rutrum. Vivamus mi mauris, molestie sit amet placerat ac, tempor vitae nisi. Fusce pharetra eleifend aliquam. Cras ultricies orci sit amet ligula tempor pulvinar. Vivamus consectetur nulla vel neque accumsan bibendum lacinia nibh venenatis. Morbi placerat tempor nunc, eu congue metus pellentesque vitae.</p>
+                    
+                    <p>Maecenas lacinia commodo venenatis. Sed nec mauris sapien. Donec eget justo sapien, id elementum magna. Integer et orci quis urna tempus eleifend eget eu nulla. Quisque interdum porttitor tincidunt. Nulla ornare dolor elit, eu adipiscing felis. Nulla viverra blandit bibendum. Mauris non tellus lacus.</p>
+                    
+                    <p><center><img src="img/pencilman.jpg" alt="pencilmannn"></center></p>
+                    </section>
+		</div>
+		
+		<div id="navmenu">
+			<header>
+				<h1>Menu Links</h1>
+			</header>
+			
+            <ul>
+                <li><a href="#homepage.html" class="navlink">Home</a></li>
+                <li><a href="#about.html" class="navlink">About Us</a></li>
+                <li><a href="#advertise.html" class="navlink">Advertise</a></li>
+                <li><a href="#library.html" class="navlink">Content</a></li>
+                <li><a href="#contacts.html" class="navlink">Contacts</a></li>
+                <li><a href="#privacy.html" class="navlink">Privacy Policy</a></li>
+            </ul>
+		</div>
+	</div>
+</body>
 </html>
